@@ -1,5 +1,3 @@
 # ignore all the models
 
-MNIST_adv_RKM_h128_epoch200_pert30_oneview.tar
-MNIST_vanilla_RKM_h128_oneview.tar
-Mul_trained_RKM_20240423-noRob_200epo_5kN_00001LR_128hdim_noLinLay.tar
+Models/
