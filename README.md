@@ -39,4 +39,7 @@ References:
 cite in APA style
 [1] Pandey, A., Schreurs, J., & Suykens, J. A. (2021). Generative restricted kernel machines: A framework for multi-view generation and disentangled feature learning. Neural Networks, 135, 177-191.
 
+To add to code:
+The algorithm was taken from a \href{https://github.com/MadryLab/mnist_challenge}{Github repository} that implemented the adversarial training of Madry on the MNIST dataset. The cross-entropy loss comes from the \texttt{torch.nn} library with the function $CrossEntropyLoss()$.\\ for the adversarial training
+
 
