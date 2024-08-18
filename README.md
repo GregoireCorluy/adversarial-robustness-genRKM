@@ -1,3 +1,5 @@
+Code and README file are for the moment messay. On Wednesday 21st of August, this should be fixed.
+
 This repository was written in the scope of the Master thesis "Adversarial Robustness in Generative - Restricted Kernel Machines".
 It contains tools to generate adversarial examples against deep generative models and assess the performance of the models. These tools are combined into one class called "class_Adv_attack_genRKM".
 Moreover, it comprises a latent analysis of the genRKM trying to discover the origin of the adversarial robustness.
