@@ -1,4 +1,4 @@
-## Code and README file are for the moment messay. On Wednesday 21st of August 2024, this should be fixed.
+## Code and README file are for the moment messy. On Wednesday 21st of August 2024, this should be fixed.
 
 ---
 
