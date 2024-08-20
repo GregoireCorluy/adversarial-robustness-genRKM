@@ -151,13 +151,32 @@ class Adv_attack_genRKM():
     def __distortion_images(self, first_image, second_image):
         """
         Measure the distortion between two images using the Frobenius norm.
+
+        Input:
+            first_image (Torch tensor (BxCxW1xW2))
+            second_image (Torch tensor (BxCxW1xW2))
+
+        Output:
+            Returns the Frobenius norm dissimilarity between the two images.
         """
 
         return float(torch.linalg.vector_norm(first_image-second_image).detach().numpy())
     
     def __get_lpips(self, first_image, second_image):
+        """
+        Get the LPIPS value between the first image and second image.
+        Images should have the same dimension.
 
-        target_size = (256, 256)  # Adjust the target size as needed
+        Input:
+            first_image (Torch tensor (BxCxW1xW2))
+            second_image (Torch tensor (BxCxW1xW2))
+
+        Output:
+            Returns the Learned Perceptual Image Patch Similarity between the two images.
+        """
+
+        # Adjust the target size as needed
+        target_size = (256, 256)  
 
         img1_resized = F.interpolate(first_image, size=target_size, mode='bilinear', align_corners=False)
         img2_resized = F.interpolate(second_image, size=target_size, mode='bilinear', align_corners=False)
@@ -167,22 +186,41 @@ class Adv_attack_genRKM():
         return lpips_distortion
     
     def __get_ssim(self, target_image, pred_image):
+        """
+        Get the SSIM value between the target image and prediction image. 
+        Note that there is a difference which one is the target and the prediction image.
+        Images should have the same dimension.
+
+        Input:
+            target_image (Torch tensor (BxCxW1xW2))
+            pred_image (Torch tensor (BxCxW1xW2))
+
+        Output:
+            Returns the Structural Similarity Image Measure between the two images.
+        """
+
         return self.ssim(pred_image, target_image).item()
 
     def __generate_back(self, x):
         """
         Receives an imput as image, goes to the feature space, then latent space, afteerwards back to the feature space and back to the image space.
         Travels the complete model to generate back the image.
-        Input: (1, 1, 28, 28) (first dimension needed for the neural network)
-        Output: (1, 28, 28)
+        Input: 
+            x (Torch tensor (1, 1, 28, 28)): input image
+        Output: 
+            generated image (Torch tensor (1, 28, 28)): generated image at the output of the model.
         """
+
+        #VAE
         if(self.VAE_model):
-            #with torch.no_grad():
             datax_gen = self.model(x.float())[0]
+        
+        #genRKM
         else:
             #go to the feature space
             output1 = self.net1(x)
 
+            #one view
             if(self.oneView):
                 Lambda = torch.diag(self.s[:self.h.size(1)])
                 lam_inv = torch.linalg.inv(Lambda)
@@ -190,6 +228,8 @@ class Adv_attack_genRKM():
                 #compute h = (Lambda-V_T*V)^-1*U_T*net1(x)
                 #note here the computation is done with everything transposed
                 latent1 = torch.mm(torch.mm(output1, self.U),lam_inv.T)
+
+            #two views
             else:
                 #compute (Lambda-V_T*V)^-1
                 VT_V = torch.mm(self.V.T, self.V)
@@ -209,41 +249,21 @@ class Adv_attack_genRKM():
 
         return datax_gen
 
-    #Algorithm coming from the paper of Sun
-    #define the loss function to generate the adversarial image
 
-    def __loss_function(self, x_ori, x, lam, type1 = True):
-        """ 
-        Loss function to generate the adversarial image where input different and output same. (type 1 attack)
-        Loss function to generate the adversarial image where input similar and output different. (type 2 attack) 
-        """
-        self.image_adv_back = self.__generate_back(x)
-        my_loss = torch.linalg.vector_norm(self.image_adv_back-x_ori) - lam * torch.linalg.vector_norm(x-x_ori)  #torch.linalg.vector_norm
-
-        if(not type1):
-            my_loss = -1*my_loss #change sign of the loss function in case type 2 attack
-
-        return my_loss
-    
-    def __loss_function_PGD(self, x_ori, x):
-        """ 
-        PGD attack, Madry et al. (extension of the attack of Goodfellow Fast gradient method) 
-        """
-        x_back = self.__generate_back(x)
-
-        my_loss = -torch.linalg.vector_norm(x_back-x_ori)  #torch.linalg.vector_norm
-
-        return my_loss
-
-    def __loss_function_target(self, x_ori, x_target, x, lam):
-        """ Loss function to generate the adversarial image where input similar and output different and equal to a target image. (type 2 attack) """
-        
-        self.image_adv_back = self.__generate_back(x)
-        my_loss = torch.linalg.vector_norm(self.image_adv_back-x_target) + lam * torch.linalg.vector_norm(x-x_ori)  #torch.linalg.vector_norm
-
-        return my_loss
-    
     def __get_latent(self, x):
+
+        """
+        Get the latent vector from the genRKM given an input image x.
+
+        Input:
+            x (Torch tensor (1x1x28x28)): input image from which we would like to compute the latent vector
+
+        Output:
+            h (Torch vector): Latent vector of the input image x
+        """
+
+        if self.VAE_model == True:
+            raise ValueError("Error: Not possible to get the latent value of the vAE model. (only for the genRKM)")
         
         #go to the feature space
         output1 = self.net1(x)
@@ -259,13 +279,86 @@ class Adv_attack_genRKM():
 
         return latent1
     
+    #Algorithm coming from the paper of Sun =================
+    #define the loss function to generate the adversarial image
+
+    def __loss_function(self, x_ori, x, lam, type1 = True):
+        """ 
+        Loss function to generate the adversarial image where input different and output same. (type 1 attack)
+        Loss function to generate the adversarial image where input similar and output different. (type 2 attack)
+
+        Input:
+            x_ori (Torch tensor (1x1x28x28)): original image, clean image
+            x (Torch tensor (1x1x28x28)): current adversarial example
+            lam (double): trade-off term between increasing the input similarity and increasing the output similarity. Usually between 0 and 1. Larger lambda means promoting/increasing the input similarity.
+            type1 (bool): Indicates whether a type 1 (True) or type 2 (False) attacked is used.
+        Output:
+            loss (Torch value): Loss value of the optimized objective function for the generation of the adversarial example.
+        """
+        self.image_adv_back = self.__generate_back(x)
+        my_loss = torch.linalg.vector_norm(self.image_adv_back-x_ori) - lam * torch.linalg.vector_norm(x-x_ori)
+
+        if(not type1):
+            #change sign of the loss function in case type 2 attack
+            my_loss = -1*my_loss 
+
+        return my_loss
+    
+    def __loss_function_PGD(self, x_ori, x):
+        """ 
+        Loss function for the PGD attack, Madry et al. (extension of the attack of Goodfellow Fast gradient method) 
+
+        Input:
+            x_ori (Torch tensor (1x1x28x28)): original image, clean image
+            x (Torch tensor (1x1x28x28)): current adversarial example
+            
+        Output:
+            loss (Torch value): Loss value of the optimized objective function for the generation of the adversarial example.
+        """
+        x_back = self.__generate_back(x)
+
+        my_loss = -torch.linalg.vector_norm(x_back-x_ori)
+
+        return my_loss
+
+    def __loss_function_target(self, x_ori, x_target, x, lam):
+        """ 
+        Loss function to generate the adversarial image where input similar and output different and equal to a target image. (type 2 attack)
+        
+        Input:
+            x_ori (Torch tensor (1x1x28x28)): original image, clean image
+            x_target (Torch tensor (1x1x28x28)): target image, image that we would like to generate at the output with the adversarial example
+            x (Torch tensor (1x1x28x28)): current adversarial example
+            lam (double): trade-off term between increasing the input similarity and increasing the output similarity. Usually between 0 and 1. Larger lambda means promoting/increasing the input similarity.
+
+        Output:
+            loss (Torch value): Loss value of the optimized objective function for the generation of the adversarial example.
+        """
+        
+        self.image_adv_back = self.__generate_back(x)
+        my_loss = torch.linalg.vector_norm(self.image_adv_back-x_target) + lam * torch.linalg.vector_norm(x-x_ori)
+
+        return my_loss
+    
+     
     def __loss_function_Tabacof(self, x_ori, x_target, x, lam):
-        """ Loss function to generate the adversarial image where latent code is similar to the target latent code and perturbation as small as possible (Tabacof) """
+        """ 
+        Loss function to generate the adversarial image where latent code is similar to the target latent code and perturbation as small as possible (Tabacof) 
+        
+        Input:
+            x_ori (Torch tensor (1x1x28x28)): original image, clean image
+            x_target (Torch tensor (1x1x28x28)): target image, image that we would like to generate at the output with the adversarial example
+            x (Torch tensor (1x1x28x28)): current adversarial example
+            lam (double): trade-off term between increasing the input similarity and increasing the output similarity. Usually between 0 and 1. Larger lambda means promoting/increasing the input similarity.
+
+        Output:
+            loss (Torch value): Loss value of the optimized objective function for the generation of the adversarial example.
+        """
         
         h_image = self.__get_latent(x)
         h_target = self.__get_latent(x_target)
         
-        my_loss = torch.linalg.vector_norm(h_image-h_target) + lam * torch.linalg.vector_norm(x-x_ori)  #torch.linalg.vector_norm
+        my_loss = torch.linalg.vector_norm(h_image-h_target) + lam * torch.linalg.vector_norm(x-x_ori) 
 
         return my_loss
 
