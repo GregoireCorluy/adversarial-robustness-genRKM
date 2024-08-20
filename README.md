@@ -6,6 +6,10 @@ This repository was written in the scope of the Master thesis "Adversarial Robus
 It contains tools to generate adversarial examples against deep generative models and assess the performance of the models. These tools are combined into one class called "class_Adv_attack_genRKM".
 Moreover, it comprises a latent analysis of the genRKM trying to discover the origin of the adversarial robustness.
 
+Table of contents:
+
+Link to the different chapters
+
 Authors: 
 
 Naichuan Zhang and Grégoire Corlùy, students in Master of Statistics and Data Science at the KU Leuven.
@@ -46,4 +50,4 @@ cite in APA style
 To add to code:
 The algorithm was taken from a \href{https://github.com/MadryLab/mnist_challenge}{Github repository} that implemented the adversarial training of Madry on the MNIST dataset. The cross-entropy loss comes from the \texttt{torch.nn} library with the function $CrossEntropyLoss()$.\\ for the adversarial training
 
-
+Contact: Gregoire.stephane.corluy@ulb.be
