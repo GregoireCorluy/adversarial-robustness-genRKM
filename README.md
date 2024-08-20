@@ -33,7 +33,7 @@ The genRKM [1] is based on the RKM framework [2], invented by Johan Suykens, whi
 It is a generative model having as interesting properties the latent space disentanglement and the multiview.
 The architecture of the genRKM is given below.
 
-![Architecture of the genRKM with the bottom nodes being the input, the intermediate nodes the features being computed by a neural network and the top nodes corresponding to the latent space by combining the different views.](images/genRKM multiview-Pandey.jpg)
+![Architecture of the genRKM with the bottom nodes being the input, the intermediate nodes the features being computed by a neural network and the top nodes corresponding to the latent space by combining the different views.](images/genRKM-multiview-Pandey.jpg)
 
 Tools:
 
