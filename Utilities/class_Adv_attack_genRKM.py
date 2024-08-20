@@ -1,11 +1,11 @@
 import argparse
 import matplotlib.pyplot as plt
-from utils import *
+from Utilities.utils import *
 import numpy as np
 import torch
 import pyiqa
-import Architecture_VAE as vae_basic
-import Architecture_VAE_large as vae_extended
+import Utilities.Architecture_VAE as vae_basic
+import Utilities.Architecture_VAE_large as vae_extended
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 
 """
@@ -19,13 +19,14 @@ Date: January-July 2024
 
 class Adv_attack_genRKM():
     
-    def __init__(self, name_model, name_VAE, VAE_model, latent_VAE = 128, oneView = False):
+    def __init__(self, name_model, name_VAE, VAE_model, archi = "basic", latent_VAE = 128, oneView = False):
         """
         Initialize an object to perform adversarial attacks.
 
         Inputs: 
             name_model (str): Fileame of the trained model
             latent_VAE (int): Latent dimension of the VAE
+            archi (str: [archi, extended]): Used architecture, basic or extended (with extra linear layer)
 
         Output:
             None
@@ -34,6 +35,17 @@ class Adv_attack_genRKM():
         #Set object characteristics ====================
         self.name_model = name_model
         self.oneView = oneView
+
+        if archi.lower() == "basic":
+            Model = vae_basic.Model
+            Encoder = vae_basic.Encoder
+            Decoder = vae_basic.Decoder
+        elif archi.lower() == "extended":
+            Model = vae_extended.Model
+            Encoder = vae_extended.Encoder
+            Decoder = vae_extended.Decoder
+        else:
+            raise ValueError("Error: Value assigned to archi not correctly defined.")
 
         # Load a Pre-trained model or saved model ====================
         parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
