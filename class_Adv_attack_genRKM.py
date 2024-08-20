@@ -1,39 +1,22 @@
 import argparse
+
+import matplotlib.animation as animation
 import matplotlib.pyplot as plt
+from sklearn.mixture import GaussianMixture as GMM
 from utils import *
 import numpy as np
 import torch
+import urllib.request
+import os.path
 import pyiqa
-import Architecture_VAE as vae_basic
-import Architecture_VAE_large as vae_extended
+from Architecture_VAE import Encoder, Decoder, Model  #Architecture_VAE_large
 from torchmetrics.image import StructuralSimilarityIndexMeasure
-
-"""
-Class containing tool to apply different adversarial attacks on the model.
-Also contains tools to measure the effectiveness of the attack and visualize.
-
-Author: Grégoire Corlùy
-Date: January-July 2024
-"""
 
 
 class Adv_attack_genRKM():
     
-    def __init__(self, name_model, name_VAE, VAE_model, latent_VAE = 128, oneView = False):
-        """
-        Initialize an object to perform adversarial attacks.
-
-        Inputs: 
-            name_model (str): Fileame of the trained model
-            latent_VAE (int): Latent dimension of the VAE
-
-        Output:
-            None
-        """
-
-        #Set object characteristics ====================
+    def __init__(self, name_model, name_VAE, latent_VAE, VAE_model, oneView):
         self.name_model = name_model
-        self.oneView = oneView
 
         # Load a Pre-trained model or saved model ====================
         parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -41,8 +24,11 @@ class Adv_attack_genRKM():
         parser.add_argument('--device', type=str, default='cpu', help='Device type: cuda or cpu')
         self.opt_gen = parser.parse_args()
 
-        #Load the genRKM model ====================
+        print(f" my filename {self.opt_gen.filename}")
+
         sd_mdl = torch.load('{}.tar'.format(self.name_model), map_location='cpu')
+
+        #.double() added otherwise problem double input and float bias, other solution with to?
 
         self.net1 = sd_mdl['net1'].double().cpu()
         self.net3 = sd_mdl['net3'].double().cpu()
@@ -60,27 +46,25 @@ class Adv_attack_genRKM():
 
         if 'opt' in sd_mdl:
             opt = sd_mdl['opt']
+            #self.opt_gen = argparse.Namespace(**vars(opt), **vars(self.opt_gen))
             opt_dict = vars(opt)
             opt_dict.update(vars(self.opt_gen))  # Update opt_gen with values from opt, prioritizing opt_gen
             self.opt_gen = argparse.Namespace(**opt_dict)
         else:
             self.opt_gen.mb_size = 200
         
-        
-        #load the data ====================
+        self.oneView = False
+        if(oneView):
+            self.oneView = True
+        #load the data
         self.opt_gen.shuffle = False
         self.xt, _, _ = get_mnist_dataloader(args=self.opt_gen)  # loading data without shuffle
         self.xtrain = self.xt.dataset.train_data[:self.h.shape[0], :, :, :]  #60.000, 1, 28, 28; h shape 0: 5000
         self.ytrain = self.xt.dataset.targets[:self.h.shape[0], :]
 
-        #Parameters of the adversarial attack ====================
-        #Can be modified for the used attack in the arguments of the attack function
-
-        #image under attack, number in the dataset
+        #Parameters
         self.nbr_image = 0
-
-        #index of chosen target image for target attack
-        self.nbr_image_target = 1 
+        self.nbr_image_target = 1 #index of chosen target image for target attack
 
         self.my_lambda = 0.1 #10 for type 1 attack, and 0.1 for type 2 and target  #trade-off between distortion input/output and difference output/input (depending on attack 1 or 2)
         self.nbr_iterations = 100 #iterations to compute the perturbation
@@ -88,18 +72,14 @@ class Adv_attack_genRKM():
 
         self.it_attack = None #number of iterations till limit of perturbation is attained
 
-        #Dissimilarity input and output ====================
-        #Save the measurements in a list for the three different metrics
-
+        #Distortion input and output
         #measured with the Frobenius norm
         self.distortion_input = []
         self.distortion_output = []
 
-        #measured with the LPIPS norm
         self.lpips_input = []
         self.lpips_output = []
 
-        #measured with the SSIM norm
         self.ssim_input = []
         self.ssim_output = []
         
@@ -110,15 +90,10 @@ class Adv_attack_genRKM():
         self.image_target = None
         self.type1 = None
 
-        #load metrics ====================
-
-        # LPIPS metric/function: Learned Perceptual Image Patch Similarity
         self.lpips = pyiqa.create_metric('lpips', device='cpu')
 
-        #ssim metrc/function: Structural Similarity Index Measure
+        #ssim function: Structural Similarity Index Measure
         self.ssim = StructuralSimilarityIndexMeasure(data_range=1.0)
-
-        #Load VAE model ====================
 
         self.VAE_model = VAE_model
 
@@ -130,7 +105,9 @@ class Adv_attack_genRKM():
         self.model = Model(Encoder=encoder, Decoder=decoder).to("cpu")
         
         loaded_state_dict = torch.load(name_VAE, map_location=torch.device('cpu'))
-        
+        #loaded_state_dict = torch.load('out/VAE_00001LR_300epo_5kN_500h_adv.pth', map_location=torch.device('cpu'))
+        #loaded_state_dict = torch.load('out/VAE_0001LR_300epo_5kN_100BS_CNN_adv.pth')
+        #loaded_state_dict = torch.load('out/VAE_0001LR_200epo_5kN_100BS_CNN_archi_with_valCurve.pth')
         filtered_state_dict = {k: v for k, v in loaded_state_dict.items() if k in self.model.state_dict()}
         self.model.load_state_dict(filtered_state_dict)
 
@@ -138,7 +115,7 @@ class Adv_attack_genRKM():
 
     def __distortion_images(self, first_image, second_image):
         """
-        Measure the distortion between two images using the Frobenius norm.
+        Measure the distortion between two images using the Frobenius norm
         """
 
         return float(torch.linalg.vector_norm(first_image-second_image).detach().numpy())
@@ -767,7 +744,19 @@ class Adv_attack_genRKM():
         image_adv_reshaped = self.image_adv.detach().reshape(1, 28, 28)
         image_ori_reshape = self.image_ori.detach().reshape(1, 28, 28)
 
+        #distortion = image_ori_reshape - image_adv_reshaped
+
         distortion = image_adv_reshaped - image_ori_reshape 
+
+        # Calculate the minimum and maximum values of the tensor
+        #min_val = torch.min(distortion)
+        #max_val = torch.max(distortion)
+
+        #distortion = (distortion - min_val)/(max_val-min_val)
+
+        #distortion = (distortion + 1)/2
+
+        #distortion = torch.abs(distortion)
 
         fig, ax = plt.subplots(2,1)
         ax[0].imshow(image_adv_reshaped[0, :], cmap='Greys_r', vmin=0, vmax=1)
@@ -788,6 +777,16 @@ class Adv_attack_genRKM():
         image_adv_gen = image_adv_gen.clone().detach().reshape(1, 28, 28)
 
         distortion = image_adv_reshaped - image_ori_reshape
+
+        # Calculate the minimum and maximum values of the tensor
+        #min_val = torch.min(distortion)
+        #max_val = torch.max(distortion)
+
+        #distortion = (distortion - min_val)/(max_val-min_val)
+
+        #distortion = (distortion + 1)/2
+
+        #distortion = torch.abs(distortion)
 
         fig, ax = plt.subplots(2,2)
         ax[0,0].imshow(self.image_ori[0, 0, :], cmap='Greys_r', vmin=0, vmax=1)
@@ -882,6 +881,13 @@ class Adv_attack_genRKM():
         img_ori_gen_resized = F.interpolate(image_ori_gen, size=target_size, mode='bilinear', align_corners=False)
         img_adv_resized = F.interpolate(self.image_adv, size=target_size, mode='bilinear', align_corners=False)
         img_adv_gen_resized = F.interpolate(image_adv_gen, size=target_size, mode='bilinear', align_corners=False)
+
+        """
+        print("LPIPS (orig_input - adv_input): ", lpips(img_ori_resized.float(), img_adv_resized.float()).item())
+        print("LPIPS (orig_input - orig_output): ", lpips(img_ori_resized.float(), img_ori_gen_resized.float()).item())
+        print("LPIPS (adv_input - adv_output): ", lpips(img_adv_resized.float(), img_adv_gen_resized.float()).item())
+        print("LPIPS (orig_output - adv_output): ", lpips(img_ori_gen_resized.float(), img_adv_gen_resized.float()).item())
+        """
 
         ori_adv = self.lpips(img_ori_resized.float(), img_adv_resized.float()).item()
         ori_ori_gen = self.lpips(img_ori_resized.float(), img_ori_gen_resized.float()).item()
