@@ -19,12 +19,13 @@ Date: January-July 2024
 
 class Adv_attack_genRKM():
     
-    def __init__(self, name_model, name_VAE, VAE_model, archi = "basic", latent_VAE = 128, oneView = False):
+    def __init__(self, name_model, model_type, archi = "basic", latent_VAE = 128, oneView = False):
         """
         Initialize an object to perform adversarial attacks.
 
         Inputs: 
             name_model (str): Fileame of the trained model
+            model_type (str): Type of the model used ("genRKM" or "VAE")
             latent_VAE (int): Latent dimension of the VAE
             archi (str: [archi, extended]): Used architecture, basic or extended (with extra linear layer)
 
@@ -35,6 +36,7 @@ class Adv_attack_genRKM():
         #Set object characteristics ====================
         self.name_model = name_model
         self.oneView = oneView
+        self.model_type = model_type
 
         if archi.lower() == "basic":
             Model = vae_basic.Model
@@ -132,8 +134,6 @@ class Adv_attack_genRKM():
 
         #Load VAE model ====================
 
-        self.VAE_model = VAE_model
-
         latent_dim = latent_VAE
 
         encoder = Encoder(latent_dim=latent_dim)
@@ -141,12 +141,26 @@ class Adv_attack_genRKM():
 
         self.model = Model(Encoder=encoder, Decoder=decoder).to("cpu")
         
-        loaded_state_dict = torch.load(name_VAE, map_location=torch.device('cpu'))
+        loaded_state_dict = torch.load(name_model, map_location=torch.device('cpu'))
         
         filtered_state_dict = {k: v for k, v in loaded_state_dict.items() if k in self.model.state_dict()}
         self.model.load_state_dict(filtered_state_dict)
 
         print(type(self.model))
+
+    def __load_genRKM(self):
+        """
+        Load the genRKM.
+        """
+
+        return "genRKM model successfully loaded."
+    
+    def __load_VAE(self):
+        """
+        Load the VAE.
+        """
+
+        return "VAE model successfully loaded."
 
     def __distortion_images(self, first_image, second_image):
         """
@@ -212,7 +226,7 @@ class Adv_attack_genRKM():
         """
 
         #VAE
-        if(self.VAE_model):
+        if(self.model_type):
             datax_gen = self.model(x.float())[0]
         
         #genRKM
@@ -262,7 +276,7 @@ class Adv_attack_genRKM():
             h (Torch vector): Latent vector of the input image x
         """
 
-        if self.VAE_model == True:
+        if self.model_type == "VAE":
             raise ValueError("Error: Not possible to get the latent value of the vAE model. (only for the genRKM)")
         
         #go to the feature space
@@ -797,6 +811,10 @@ class Adv_attack_genRKM():
         return "Attack succeeded"
     
     def save_distortion_arrays(self):
+
+        """
+        Save the distortion arrays in the memory of the computer.
+        """
         # Convert list to NumPy array
         distortion_input_array = np.array(self.distortion_input)
         distortion_output_array = np.array(self.distortion_output)
@@ -807,13 +825,13 @@ class Adv_attack_genRKM():
     
     def plot_ori_back(self):
         """
-        Plot original image and the reconstructed image
+        Plot original image and the reconstructed image.
         """
         image_ori_gen = self.__generate_back(self.image_ori)
         image_ori_gen = image_ori_gen.reshape(1, 28, 28)
 
         model_name = "genRKM"
-        if(self.VAE_model):
+        if(self.model_type):
             model_name = "VAE"
         
         fig, ax = plt.subplots(1, 2)
@@ -827,6 +845,9 @@ class Adv_attack_genRKM():
         plt.show()
         
     def plot_ori_back_adv_back(self):
+        """
+        Plot the original, the adversarial image and their reconstructed images.
+        """
         #ouput of the adversarial input sample/output of the perturbed image
         image_ori_gen = self.__generate_back(self.image_ori)
         image_ori_gen = image_ori_gen.reshape(1, 28, 28)
@@ -853,6 +874,10 @@ class Adv_attack_genRKM():
 
     def plot_adv_back(self):
 
+        """
+        Plot the adversarial image and its reconstruction.
+        """
+
         image_adv_gen = self.image_adv_back
         image_adv_gen = image_adv_gen.clone().detach().reshape(1, 28, 28)
         image_adv_reshaped = self.image_adv.detach().reshape(1, 28, 28)
@@ -868,6 +893,10 @@ class Adv_attack_genRKM():
         plt.show()
 
     def plot_adv_diff(self):
+
+        """
+        Plot the adversarial image and the perturbation (difference) that has been applied on the original image.
+        """
 
         image_adv_reshaped = self.image_adv.detach().reshape(1, 28, 28)
         image_ori_reshape = self.image_ori.detach().reshape(1, 28, 28)
@@ -885,6 +914,10 @@ class Adv_attack_genRKM():
         plt.show()
 
     def plot_ori_adv_diff(self):
+
+        """
+        Plot the original image, the adversarial image, the reconstructed adversarial image and the applied adversarial image.
+        """
 
         image_adv_reshaped = self.image_adv.detach().reshape(1, 28, 28)
         image_ori_reshape = self.image_ori.detach().reshape(1, 28, 28)
@@ -912,6 +945,10 @@ class Adv_attack_genRKM():
     
     def plot_distortion(self):
 
+        """
+        Plot the input and output distortion curves in function of the iteration.
+        """
+
         type_of_attack = "type 1"
 
         if(not self.type1):
@@ -933,6 +970,10 @@ class Adv_attack_genRKM():
         plt.show()
 
     def plot_lpips(self):
+
+        """
+        Plot the LPIPS input and output curves in function of the iteration.
+        """
 
         type_of_attack = "type 1"
 
@@ -956,12 +997,20 @@ class Adv_attack_genRKM():
 
     def get_distortion_arrays(self):
 
+        """"
+        Get the input and output distortion arrays for the complete attack.
+        """
+
         distortion_input_array = np.array(self.distortion_input)
         distortion_output_array = np.array(self.distortion_output)
 
         return distortion_input_array, distortion_output_array
     
     def get_lpips_arrays(self):
+
+        """"
+        Get the input and output LPIPS arrays for the complete attack.
+        """
 
         lpips_input_array = np.array(self.lpips_input)
         lpips_output_array = np.array(self.lpips_output)
@@ -970,6 +1019,10 @@ class Adv_attack_genRKM():
     
     def get_ssim_arrays(self):
 
+        """"
+        Get the input and output SSIM arrays for the complete attack.
+        """
+
         ssim_input_array = np.array(self.ssim_input)
         ssim_output_array = np.array(self.ssim_output)
 
@@ -977,6 +1030,15 @@ class Adv_attack_genRKM():
 
 
     def get_final_lpips(self):
+
+        """
+        Get the final LPIPS value at the end of the attack for:
+
+            ori_adv: similarity between the original and adversarial image.
+            ori_ori_gen: similarity between the original and reconstructed original image.
+            adv_adv_gen: similarity between the adversarial and adversarial reconstructed image.
+            ori_gen_adv_gen: similarity between the original reconstructed and adversarial reconstructed image.
+        """
 
         target_size = (256, 256)  # Adjust the target size as needed
 
@@ -996,4 +1058,9 @@ class Adv_attack_genRKM():
         return ori_adv, ori_ori_gen, adv_adv_gen, ori_gen_adv_gen
     
     def get_it_attack(self):
+
+        """
+        Get the number of iterations needed for the attack.
+        """
+
         return self.it_attack
