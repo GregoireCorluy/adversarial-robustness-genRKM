@@ -1032,12 +1032,16 @@ class Adv_attack_genRKM():
     def get_final_lpips(self):
 
         """
-        Get the final LPIPS value at the end of the attack for:
+        Get the final LPIPS value at the end of the attack between pairs of images.
 
-            ori_adv: similarity between the original and adversarial image.
-            ori_ori_gen: similarity between the original and reconstructed original image.
-            adv_adv_gen: similarity between the adversarial and adversarial reconstructed image.
-            ori_gen_adv_gen: similarity between the original reconstructed and adversarial reconstructed image.
+        Input:
+            None.
+
+        Output:
+            ori_adv (float): similarity between the original and adversarial image.
+            ori_ori_gen (float): similarity between the original and reconstructed original image.
+            adv_adv_gen (float): similarity between the adversarial and adversarial reconstructed image.
+            ori_gen_adv_gen (float): similarity between the original reconstructed and adversarial reconstructed image.
         """
 
         target_size = (256, 256)  # Adjust the target size as needed
