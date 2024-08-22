@@ -70,11 +70,12 @@ The adversarial attacks and some adversarial defenses implemented in this thesis
 
 ## Credits
 
-The code builds on the work of **Arun Pandey** concerning the genRKM. For the VAE, the code is inspired by **Jackson Kang**. The adversarial training code was inspired by the repository of **Madrylab**.
+The code builds on the work of **Arun Pandey** concerning the genRKM. For the VAE, the code is inspired by **Jackson Kang**. The adversarial training code was inspired by the repositores of **Madrylab** and **Luyu Wang**.
 
 - Link to the repository of [Arun Pandey](https://www.esat.kuleuven.be/stadius/E/pandey/softwareGenRKM.php)
 - Link to the repository of [Jackson Kang](https://github.com/Jackson-Kang/Pytorch-VAE-tutorial)
 - Link to the repository of [Madrylab](https://github.com/MadryLab/mnist_challenge)
+- Link to the repository of [Luyu Wang](https://github.com/wanglouis49/pytorch-adversarial_box)
 
 ## References
 
